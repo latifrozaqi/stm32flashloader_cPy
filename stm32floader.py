@@ -56,15 +56,29 @@ class stm32bl:
                 return 1
         return 0
     def cmd_general(self,cmd):
-        cmd=[cmd,cmd^255]
-        #print(cmd)
+        if isinstance(cmd, (tuple, list)):
+            xor = cmd[0]
+            for i in cmd[1:]:
+                xor ^= i
+            cmd.append(xor)
+        else:
+            cmd = [cmd, cmd ^ 0xff]
         self.uart.write(bytes(cmd))
         r=self.uart.read()
         return r
-    def cmd_get(self):
-        cmd=[0,255]
-        self.uart.write(bytes(cmd))
+    def cmd_write_data(self,data):
+        if isinstance(data, (tuple, list)):
+            xor = data[0]
+            for i in data[1:]:
+                xor ^= i
+            data.append(xor)
+        else:
+            data = [data, data ^ 0xff]
+        self.uart.write(bytes(data))
         r=self.uart.read()
+        return r
+    def cmd_get(self):
+        r=self.cmd_general(self.CMD_GET)
         if len(r):
             for i in r[3:]:
                 try:
@@ -73,9 +87,7 @@ class stm32bl:
                     print("error or no key: %d"%(i))
         return r
     def cmd_erase_glob(self):
-        cmd=[67,188]
-        self.uart.write(bytes(cmd))
-        r=self.uart.read()
+        r=self.cmd_general(self.CMD_ERASE)
         if b'\x79' in r:
             print("erasing memory..")
             cmd=[255,0]
@@ -92,5 +104,29 @@ class stm32bl:
             0xff & (val >> 8),
             0xff & val,
         ]
-
-
+    ############# write flash #########
+    def _cmd_write_memory(self, address, data):
+        """Writes up to 256 bytes to the RAM or Flash memory
+        starting from an address specified by the application"""
+        #self.log("CMD_WRITE_MEMORY(%08x, %d)" % (address, len(data)), level=2)
+        self.cmd_general(self.CMD_WRITE_MEMORY)
+        self.cmd_write_data(self._convert_32bit(address))
+        return self.cmd_write_data([len(data) - 1] + data)
+    def write_memory(self, address, data):
+        """write memory"""
+        print("from 0x%08x (%d Bytes)" % (address, len(data)))
+        _data = data[:]
+        while _data:
+            self._cmd_write_memory(address, _data[:256])
+            address += 256
+            _data = _data[256:]
+        print("done write memory")
+    def write_file(self, address, file_name):
+        """Write file and or verify"""
+        binfile = open(file_name, 'rb')
+        mem = list(binfile.read())
+        size = len(mem)
+        if size % 4:
+            mem += [0] * (size % 4)
+            size = len(mem)
+        self.write_memory(address, mem)

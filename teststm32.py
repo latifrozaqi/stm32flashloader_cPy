@@ -8,4 +8,4 @@ if not r:
 else:
     stm32.cmd_get()
     stm32.cmd_erase_glob()
-    #stm32.cmd_write_only('STM32UARTHS.bin')
+    stm32.write_file(stm32.FLASH_START,'STM32UARTHS.bin')
