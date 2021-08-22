@@ -27,7 +27,7 @@ class stm32bl:
     67:"erase cmd",68:"ext erase cmd",99:"write protect cmd",
     115:"write unprotect cmd",130:"read protect cmd",
     146:"read unprotect cmd",121:"Acknowledge"}
-    def __init__(self, txpin=board.IO33, rxpin=board.IO34, baudrate=9600, verbosity=1, rst=board.IO16):
+    def __init__(self, txpin=board.IO33, rxpin=board.IO34, baudrate=115200, verbosity=1, rst=board.IO16):
         self.uart = busio.UART(txpin,rxpin,baudrate=baudrate,parity=busio.UART.Parity.EVEN)
         self.reset_pin=digitalio.DigitalInOut(rst)
         self.reset_pin.direction=digitalio.Direction.OUTPUT
@@ -116,11 +116,13 @@ class stm32bl:
         """write memory"""
         print("from 0x%08x (%d Bytes)" % (address, len(data)))
         _data = data[:]
+        start_time=time.time()
         while _data:
             self._cmd_write_memory(address, _data[:256])
             address += 256
             _data = _data[256:]
-        print("done write memory")
+            print("write succeed@addr: %d"%(address))
+        print("done write memory in %s seconds"%(time.time()-start_time))
     def write_file(self, address, file_name):
         """Write file and or verify"""
         binfile = open(file_name, 'rb')
